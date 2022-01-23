@@ -26,13 +26,6 @@ fun main() {
         fieldColor[allFields[f][0]][allFields[f][1]] = Color.lightgray
     }
 
-    val playerFields: MutableList<MutableList<MutableList<Int>>> = mutableListOf(*(0..4).map { mutableListOf(*(0..55).map { mutableListOf(0, 0) }.toTypedArray()) }.toTypedArray())
-    for (player in 0..4) {
-        for (field in 0..50) {
-            //
-        }
-    }
-
     val myTempList: MutableList<Int> = mutableListOf(0)
     console.log(myTempList.size, "\n")
 
@@ -58,14 +51,7 @@ fun main() {
                 for (i in 0..10) {
                     Tr {
                         for (j in 0..10) {
-                            Td({
-                                style { backgroundColor(fieldColor[i][j]) }
-                                onClick {
-                                    myTempList.add(j+(i*11))
-                                    console.log(myTempList.toString())
-                                    console.log(myTempList.size)
-                                }
-                            }) {
+                            Td({ style { backgroundColor(fieldColor[i][j]) } }) {
                                 Text((j+(i*11)).toString())
                             }
                         }
