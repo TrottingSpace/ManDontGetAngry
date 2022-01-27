@@ -1,6 +1,7 @@
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 //import androidx.compose.runtime.Composable
 import kotlinx.browser.document
 //import org.jetbrains.compose.web.attributes.*
@@ -11,49 +12,55 @@ import kotlin.random.Random
 
 //playerPath[player][field number]
 val playerPath = listOf(
-    listOf(10, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 16, 27, 38, 49, 60),
-    listOf(120, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 64, 63, 62, 61, 60),
-    listOf(110, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 104, 93, 82, 71, 60),
-    listOf(0, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 56, 57, 58, 59, 60)
+    listOf(7, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 16, 27, 38, 49, 60),
+    listOf(87, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 64, 63, 62, 61, 60),
+    listOf(113, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 104, 93, 82, 71, 60),
+    listOf(33, 44, 45, 46, 47, 48, 37, 26, 15, 4, 5, 6, 17, 28, 39, 50, 51, 52, 53, 54, 65, 76, 75, 74, 73, 72, 83, 94, 105, 116, 115, 114, 103, 92, 81, 70, 69, 68, 67, 66, 55, 56, 57, 58, 59, 60)
 )
-//player home fields for pieces in order 0, 1, 2, 3
-val playerHome = listOf(
-    listOf(19, 20, 30, 31),
-    listOf(96, 97, 107, 108),
-    listOf(89, 90, 100, 101),
-    listOf(12, 13, 23, 24)
-)
-
-val playerLocations = (0..15).map { 0 }.toMutableList()
-
-class PlayerPiece(private val player: Int, private val pieceNumber: Int) {
-    var progress: Int = 0
-        set(value) {
-            field = if ((0..44).contains(value)) { value } else { 45 }
-            inGame = (1..44).contains(progress)
-            for (i in 0..15) {
-                if (gamePiece[i].fieldNum==fieldNum) { gamePiece[i].progress = 0 }
-            }
-            fieldNum = if (progress==0) { playerHome[player][pieceNumber] } else { playerPath[player][progress] }
-        }
-    var inGame: Boolean = false
-        private set
-    var fieldNum: Int = 0
-        get() = if (progress==0) { playerHome[player][pieceNumber] } else { playerPath[player][progress] }
-        private set
-    val name: String = "$player/$pieceNumber"
-}
-
-val gamePiece: List<PlayerPiece> = (0..15).map { PlayerPiece(it/4, it-((it/4)*4)) }
+//player home fields 0000111122223333
+val playerHomes = listOf(19, 20, 30, 31, 96, 97, 107, 108, 89, 90, 100, 101, 12, 13, 23, 24)
 
 
 class Game {
+    private val progressList = (0..15).map { 0 }.toMutableStateList()
+    private val positionList = (0..15).map { playerHomes[it] }.toMutableStateList()
+    fun positionsGet(): List<Int> { return positionList }
     var throwing = false
-    var player = 0
-    var dice = 0
+    var player by mutableStateOf(0)
+        private set
+    fun nextPlayer() { if (player==3) { player=0 } else { player+=1 } }
+    var dice by mutableStateOf(0)
         private set
     fun diceThrow() { dice = Random.nextInt(1, 7) }
+    fun kick(currentPiece: Int) {
+        val fieldNumber = playerPath[currentPiece/4][progressList[currentPiece]]
+        val indexList = (0..15).map { it }.toMutableList()
+        for (i in 0..3) {
+            indexList.removeAt((currentPiece/4)*4)
+        }
+        //console.log(">>", indexList.toString())
+        indexList.forEach { if (positionList[it]==fieldNumber) { progressList[it]=0; positionList[it] = playerHomes[it] } }
+    }
+    fun progressGet(piece: Int): Int { if ((0..15).contains(piece)) { return progressList[piece] }; return 0 }
+    fun progressAdd(piece: Int) {
+        if ((0..15).contains(piece) && dice != 0) {
+            progressList[piece] += dice
+            if (progressList[piece] > 45) { progressList[piece] = 45 }
+            positionList[piece] = playerPath[piece/4][progressList[piece]]
+        }
+    }
+    //nested class
+    class Piece(private val index:Int) {
+        val player = index/4
+        private val pieceNumber = index%4
+        var inGame = (1..44).contains(game.progressList[index])
+            private set
+        val name: String = "$player/$pieceNumber"
+    }
 }
+
+val game: Game = Game()
+val gamePiece = (0..15).map { Game.Piece(it) }
 
 fun main() {
     console.log("%c Welcome in \u0022Man, Don't Get Angry\u0022! ", "color: white; font-weight: bold; background-color: black;")
@@ -63,7 +70,15 @@ fun main() {
     val fieldList: List<List<Int>> = (0..120).map { listOf(it/11, it%11) }
     //console.log(fieldList.toString())
 
+    //game.kick(1, 3)
 
+    //listOf(1, 3, 5, 7).forEach { console.log(it) }
+
+    /*console.log(game.progressGet(2))
+    game.diceThrow()
+    //game.progressAdd(2)
+    console.log(game.progressGet(2))
+    console.log(gamePiece[1].name)*/
 
 
     //colors for players 0, 1, 2, 3, 4  (4 is technically not a player)
@@ -80,8 +95,6 @@ fun main() {
 
 
 
-    var diceThrow by mutableStateOf(0)
-    var currentPlayer by mutableStateOf(0)
 
     //"ManDontGetAngry_root" div style applying
     document.getElementById("ManDontGetAngry_root")?.setAttribute("style", "padding: 0px; border: none; aspect-ratio: 1;")
@@ -111,12 +124,12 @@ fun main() {
                                 when (fieldNum) {
                                     60 -> {
                                         Button({
-                                            style { height(100.percent); width(100.percent); backgroundColor(playerColor[currentPlayer]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
+                                            style { height(100.percent); width(100.percent); backgroundColor(playerColor[game.player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
                                             onClick {
-                                                diceThrow = Random.nextInt(1, 7)
+                                                game.diceThrow()
                                             }//onClick
                                         }) {
-                                            Text("$diceThrow")
+                                            Text("[ ${game.dice} ]")
                                         }//Button
                                     }
                                     87 -> {
@@ -124,14 +137,29 @@ fun main() {
                                         Button({
                                             style { height(100.percent); width(100.percent); backgroundColor(rgb(255, 127, 0)); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
                                             onClick {
-                                                currentPlayer += 1
-                                                if (currentPlayer >= 4) {
-                                                    currentPlayer = 0
-                                                }
+                                                game.nextPlayer()
                                             }
                                         }) {
-                                            Text(currentPlayer.toString())
+                                            Text("< ${game.player} >")
                                         }//Button
+                                    }
+                                    in game.positionsGet() -> {
+                                        //game.positionsGet().indexOf(fieldNum)
+                                        for (k in 0..15) {
+                                            if (game.positionsGet()[k]==fieldNum) {
+                                                Button({
+                                                    style { height(100.percent); width(100.percent); backgroundColor(playerColor[gamePiece[k].player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
+                                                    onClick {
+                                                        console.log("| ${gamePiece[k].name} |")
+                                                        game.progressAdd(k)
+                                                        console.log(game.progressGet(k))
+                                                        game.kick(k)
+                                                    }
+                                                }) {
+                                                    Text("| ${gamePiece[k].name} |")
+                                                }//Button
+                                            }
+                                        }
                                     }
                                     in listOf(36, 40, 80, 84) -> {
                                         Text("W.I.P.")
