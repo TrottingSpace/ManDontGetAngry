@@ -24,14 +24,17 @@ val playerHomes = listOf(19, 20, 30, 31, 96, 97, 107, 108, 89, 90, 100, 101, 12,
 class Game {
     private val progressList = (0..15).map { 0 }.toMutableStateList()
     private val positionList = (0..15).map { playerHomes[it] }.toMutableStateList()
+    private val pieceInGame = (0..3).map { (0..3).map { (1..44).contains(progressList[it]) }.toMutableStateList() }.toMutableStateList() //todo verify is it working
     fun positionsGet(): List<Int> { return positionList }
-    var throwing = false
+    var throwingDice by mutableStateOf(true)
+        private set
+    private var diceCount = 3
     var player by mutableStateOf(0)
         private set
-    fun nextPlayer() { if (player==3) { player=0 } else { player+=1 } }
+    fun nextPlayer() { if (player==3) { player=0 } else { player+=1 }; throwingDice = true; diceCount = if (pieceInGame[player].contains(true)) { 1 } else { 3 } } //todo WHY it's "true"?
     var dice by mutableStateOf(0)
         private set
-    fun diceThrow() { dice = Random.nextInt(1, 7) }
+    fun diceThrow() { dice = Random.nextInt(1, 7); throwingDice = false; diceCount -= 1; console.log("Dice = $dice \t left: $diceCount") }
     fun kick(currentPiece: Int) {
         val fieldNumber = playerPath[currentPiece/4][progressList[currentPiece]]
         val indexList = (0..15).map { it }.toMutableList()
@@ -47,15 +50,15 @@ class Game {
             progressList[piece] += dice
             if (progressList[piece] > 45) { progressList[piece] = 45 }
             positionList[piece] = playerPath[piece/4][progressList[piece]]
+            throwingDice = true
+            if (dice != 6 && diceCount <= 0) { nextPlayer() }
         }
     }
     //nested class
-    class Piece(private val index:Int) {
+    class Piece(index:Int) {
         val player = index/4
         private val pieceNumber = index%4
-        var inGame = (1..44).contains(game.progressList[index])
-            private set
-        val name: String = "$player/$pieceNumber"
+        val name: String = "(${pieceNumber+1})"
     }
 }
 
@@ -70,16 +73,6 @@ fun main() {
     val fieldList: List<List<Int>> = (0..120).map { listOf(it/11, it%11) }
     //console.log(fieldList.toString())
 
-    //game.kick(1, 3)
-
-    //listOf(1, 3, 5, 7).forEach { console.log(it) }
-
-    /*console.log(game.progressGet(2))
-    game.diceThrow()
-    //game.progressAdd(2)
-    console.log(game.progressGet(2))
-    console.log(gamePiece[1].name)*/
-
 
     //colors for players 0, 1, 2, 3, 4  (4 is technically not a player)
     val playerColor: MutableList<CSSColorValue> = mutableListOf(Color.limegreen, Color.tomato, Color.dodgerblue, Color.gold, Color.dimgray)
@@ -90,10 +83,8 @@ fun main() {
     listOf(114, 89, 90, 100, 101, 71, 82, 93, 104).map { fieldColor[it/11][it%11] = playerColor[2]; borderColor[it/11][it%11] = Color.dimgray }
     listOf(44, 12, 13, 23, 24, 56, 57, 58, 59).map { fieldColor[it/11][it%11] = playerColor[3]; borderColor[it/11][it%11] = Color.dimgray }
 
-    listOf(36, 40, 80, 84).map { fieldColor[it/11][it%11] = Color.pink; borderColor[it/11][it%11] = Color.deeppink }//todo testing
-
-
-
+    //coloring "W.I.P." fields
+    listOf(36, 40, 80, 84).map { fieldColor[it/11][it%11] = Color.pink; borderColor[it/11][it%11] = Color.deeppink }
 
 
     //"ManDontGetAngry_root" div style applying
@@ -126,7 +117,9 @@ fun main() {
                                         Button({
                                             style { height(100.percent); width(100.percent); backgroundColor(playerColor[game.player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
                                             onClick {
-                                                game.diceThrow()
+                                                if (game.throwingDice) {
+                                                    game.diceThrow()
+                                                }
                                             }//onClick
                                         }) {
                                             Text("[ ${game.dice} ]")
@@ -140,7 +133,7 @@ fun main() {
                                                 game.nextPlayer()
                                             }
                                         }) {
-                                            Text("< ${game.player} >")
+                                            Text("< ${game.player} temp >")
                                         }//Button
                                     }
                                     in game.positionsGet() -> {
@@ -149,14 +142,15 @@ fun main() {
                                             if (game.positionsGet()[k]==fieldNum) {
                                                 Button({
                                                     style { height(100.percent); width(100.percent); backgroundColor(playerColor[gamePiece[k].player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
-                                                    onClick {
-                                                        console.log("| ${gamePiece[k].name} |")
-                                                        game.progressAdd(k)
-                                                        console.log(game.progressGet(k))
-                                                        game.kick(k)
+                                                    if (game.player == (k/4) && (!game.throwingDice)) {
+                                                        onClick {
+                                                            game.progressAdd(k)
+                                                            game.kick(k)
+                                                            console.log(" p${k/4} : ${gamePiece[k].name} -> ${game.progressGet(k)}")
+                                                        }
                                                     }
                                                 }) {
-                                                    Text("| ${gamePiece[k].name} |")
+                                                    Text(gamePiece[k].name)
                                                 }//Button
                                             }
                                         }
