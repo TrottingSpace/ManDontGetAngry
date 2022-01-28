@@ -24,17 +24,18 @@ val playerHomes = listOf(19, 20, 30, 31, 96, 97, 107, 108, 89, 90, 100, 101, 12,
 class Game {
     private val progressList = (0..15).map { 0 }.toMutableStateList()
     private val positionList = (0..15).map { playerHomes[it] }.toMutableStateList()
-    private val pieceInGame = (0..3).map { (0..3).map { (1..44).contains(progressList[it]) }.toMutableStateList() }.toMutableStateList() //todo verify is it working
+    //private fun pieceInGame(playerNum: Int): List<Boolean> { return (0..3).map { (1..44).contains(progressList[(4*playerNum)+it]) } }
+    private fun anyInGame(playerNum: Int): Boolean { return (0..3).any { (1..44).contains(progressList[(4*playerNum)+it]) } }
     fun positionsGet(): List<Int> { return positionList }
     var throwingDice by mutableStateOf(true)
         private set
     private var diceCount = 3
     var player by mutableStateOf(0)
         private set
-    fun nextPlayer() { if (player==3) { player=0 } else { player+=1 }; throwingDice = true; diceCount = if (pieceInGame[player].contains(true)) { 1 } else { 3 } } //todo WHY it's "true"?
+    fun nextPlayer() { if (player==3) { player=0 } else { player+=1 }; throwingDice = true; diceCount = if (anyInGame(player)) { 1 } else { 3 } }
     var dice by mutableStateOf(0)
         private set
-    fun diceThrow() { dice = Random.nextInt(1, 7); throwingDice = false; diceCount -= 1; console.log("Dice = $dice \t left: $diceCount") }
+    fun diceThrow() { dice = Random.nextInt(1, 7); throwingDice = false; if (dice == 6) { diceCount = 1 } else { diceCount -= 1 }; console.log("Dice = $dice \t left: $diceCount") }
     fun kick(currentPiece: Int) {
         val fieldNumber = playerPath[currentPiece/4][progressList[currentPiece]]
         val indexList = (0..15).map { it }.toMutableList()
@@ -55,10 +56,11 @@ class Game {
         }
     }
     //nested class
-    class Piece(index:Int) {
+    class Piece(private val index:Int) {
         val player = index/4
         private val pieceNumber = index%4
         val name: String = "(${pieceNumber+1})"
+        fun onTheGo(): Boolean { return (1..40).contains(game.progressList[index]) }
     }
 }
 
@@ -139,13 +141,15 @@ fun main() {
                                     in game.positionsGet() -> {
                                         //game.positionsGet().indexOf(fieldNum)
                                         for (k in 0..15) {
-                                            if (game.positionsGet()[k]==fieldNum) {
+                                            if (game.positionsGet()[k]==fieldNum && fieldNum != 60) {
                                                 Button({
                                                     style { height(100.percent); width(100.percent); backgroundColor(playerColor[gamePiece[k].player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
                                                     if (game.player == (k/4) && (!game.throwingDice)) {
                                                         onClick {
                                                             game.progressAdd(k)
-                                                            game.kick(k)
+                                                            if (gamePiece[k].onTheGo()) {
+                                                                game.kick(k)
+                                                            }
                                                             console.log(" p${k/4} : ${gamePiece[k].name} -> ${game.progressGet(k)}")
                                                         }
                                                     }
