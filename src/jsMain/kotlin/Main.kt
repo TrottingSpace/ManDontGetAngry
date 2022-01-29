@@ -35,7 +35,13 @@ class Game {
     fun nextPlayer() { if (player==3) { player=0 } else { player+=1 }; throwingDice = true; diceCount = if (anyInGame(player)) { 1 } else { 3 } }
     var dice by mutableStateOf(0)
         private set
-    fun diceThrow() { dice = Random.nextInt(1, 7); throwingDice = false; if (dice == 6) { diceCount = 1 } else { diceCount -= 1 }; console.log("Dice = $dice \t left: $diceCount") }
+    fun diceThrow() {
+        dice = Random.nextInt(1, 7)
+        if (dice == 6) { diceCount = 1 } else { diceCount -= 1 }
+        throwingDice = !(anyInGame(player) || dice == 6)
+        console.log("p$player : Dice = $dice \t left: $diceCount")
+        if (diceCount <= 0 && (!anyInGame(player))) { nextPlayer() }
+    }
     fun kick(currentPiece: Int) {
         val fieldNumber = playerPath[currentPiece/4][progressList[currentPiece]]
         val indexList = (0..15).map { it }.toMutableList()
@@ -48,7 +54,7 @@ class Game {
     fun progressGet(piece: Int): Int { if ((0..15).contains(piece)) { return progressList[piece] }; return 0 }
     fun progressAdd(piece: Int) {
         if ((0..15).contains(piece) && dice != 0) {
-            progressList[piece] += dice
+            if (progressList[piece] == 0) { progressList[piece] += 1 } else { progressList[piece] += dice }
             if (progressList[piece] > 45) { progressList[piece] = 45 }
             positionList[piece] = playerPath[piece/4][progressList[piece]]
             throwingDice = true
@@ -145,12 +151,14 @@ fun main() {
                                                 Button({
                                                     style { height(100.percent); width(100.percent); backgroundColor(playerColor[gamePiece[k].player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
                                                     if (game.player == (k/4) && (!game.throwingDice)) {
-                                                        onClick {
-                                                            game.progressAdd(k)
-                                                            if (gamePiece[k].onTheGo()) {
-                                                                game.kick(k)
+                                                        if (game.progressGet(k) > 0 || game.dice == 6) {
+                                                            onClick {
+                                                                game.progressAdd(k)
+                                                                if (gamePiece[k].onTheGo()) {
+                                                                    game.kick(k)
+                                                                }
+                                                                console.log(" p${k / 4} : ${gamePiece[k].name} -> ${game.progressGet(k)}")
                                                             }
-                                                            console.log(" p${k/4} : ${gamePiece[k].name} -> ${game.progressGet(k)}")
                                                         }
                                                     }
                                                 }) {
