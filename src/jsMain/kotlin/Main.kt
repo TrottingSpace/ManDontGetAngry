@@ -1,9 +1,7 @@
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
+import androidx.compose.runtime.*
 //import androidx.compose.runtime.Composable
 import kotlinx.browser.document
+import kotlinx.browser.window
 //import org.jetbrains.compose.web.attributes.*
 import org.jetbrains.compose.web.css.*
 import org.jetbrains.compose.web.dom.*
@@ -20,6 +18,12 @@ val playerPath = listOf(
 //player home fields 0000111122223333
 val playerHomes = listOf(19, 20, 30, 31, 96, 97, 107, 108, 89, 90, 100, 101, 12, 13, 23, 24)
 
+class Menu {
+    var hidden by mutableStateOf(false)
+    val players = mutableStateListOf(true, true, true, true)
+    fun playersCount(): Int { var playerCounter = 0; for (i in 0..3) { if (players[i]) { playerCounter += 1 } }; return playerCounter }
+    var nextButtonHidden by mutableStateOf(true)
+}
 
 class Game {
     private val progressList = (0..15).map { 0 }.toMutableStateList()
@@ -32,15 +36,20 @@ class Game {
     private var diceCount = 3
     var player by mutableStateOf(0)
         private set
-    fun nextPlayer() { if (player==3) { player=0 } else { player+=1 }; throwingDice = true; diceCount = if (anyInGame(player)) { 1 } else { 3 } }
+    fun nextPlayer() { do { if (player==3) { player=0 } else { player+=1 } } while ((0..3).any { menu.players[it] } && !menu.players[player]); throwingDice = true; diceCount = if (anyInGame(player)) { 1 } else { 3 } }
     var dice by mutableStateOf(0)
         private set
+    fun canMoveThis(piece: Int): Boolean { return (progressList[piece]+dice) <= 45 }
+    fun canMove(): Boolean { return (0..3).any { (progressList[(player*4)+it]+dice) <= 45 } }
     fun diceThrow() {
         dice = Random.nextInt(1, 7)
         if (dice == 6) { diceCount = 1 } else { diceCount -= 1 }
         throwingDice = !(anyInGame(player) || dice == 6)
         console.log("p$player : Dice = $dice \t left: $diceCount")
-        if (diceCount <= 0 && (!anyInGame(player))) { nextPlayer() }
+        if (diceCount <= 0 && (!anyInGame(player))) { menu.nextButtonHidden = false }
+    }
+    fun homeBlockedFor(piece: Int): Boolean {
+        return ((0..3).any { progressList[(piece/4)+it] == progressList[it] } && (41..44).contains(progressList[piece]+dice))
     }
     fun kick(currentPiece: Int) {
         val fieldNumber = playerPath[currentPiece/4][progressList[currentPiece]]
@@ -70,6 +79,7 @@ class Game {
     }
 }
 
+val menu = Menu()
 val game: Game = Game()
 val gamePiece = (0..15).map { Game.Piece(it) }
 
@@ -78,12 +88,12 @@ fun main() {
     val fieldColor: MutableList<MutableList<CSSColorValue>> = (0..10).map { (0..10).map { Color.white }.toMutableList() }.toMutableList()
     val borderColor: MutableList<MutableList<CSSColorValue>> = (0..10).map { (0..10).map { Color.transparent }.toMutableList() }.toMutableList()
 
-    val fieldList: List<List<Int>> = (0..120).map { listOf(it/11, it%11) }
+    //val fieldList: List<List<Int>> = (0..120).map { listOf(it/11, it%11) }
     //console.log(fieldList.toString())
 
 
     //colors for players 0, 1, 2, 3, 4  (4 is technically not a player)
-    val playerColor: MutableList<CSSColorValue> = mutableListOf(Color.limegreen, Color.tomato, Color.dodgerblue, Color.gold, Color.dimgray)
+    val playerColor: MutableList<CSSColorValue> = mutableListOf(Color.limegreen, Color.tomato, Color.dodgerblue, Color.gold, Color.gray)
     //coloring fields
     listOf(4, 5, 6, 15, 17, 26, 28, 37, 39, 44, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55, 65, 66, 67, 68, 69, 70, 72, 73, 74, 75, 76, 81, 83, 92, 94, 103, 105, 114, 115, 116).map { fieldColor[it/11][it%11] = Color.lightgray; borderColor[it/11][it%11] = Color.dimgray }
     listOf(6, 19, 20, 30, 31, 16, 27, 38, 49).map { fieldColor[it/11][it%11] = playerColor[0]; borderColor[it/11][it%11] = Color.dimgray }
@@ -96,9 +106,76 @@ fun main() {
 
 
     //"ManDontGetAngry_root" div style applying
-    document.getElementById("ManDontGetAngry_root")?.setAttribute("style", "padding: 0px; border: none; aspect-ratio: 1;")
+    document.getElementById("ManDontGetAngry_root")?.setAttribute("style", "padding: 0px; border: none; aspect-ratio: 1; position: relative; margin: 0px auto;")
 
     renderComposable(rootElementId = "ManDontGetAngry_root") {
+        Button({
+            style {
+                if (menu.nextButtonHidden) { display(DisplayStyle.None) }
+                position(Position.Absolute)
+                top(50.percent); left(50.percent)
+                property("transform", "translate(-50%, -50%)")
+                backgroundColor(playerColor[game.player])
+                border(2.px, LineStyle.Solid, Color.dimgray)
+                width(13.percent)
+                property("aspect-ratio", "1")
+                textAlign("center")
+            }
+            onClick { game.nextPlayer(); menu.nextButtonHidden = true }
+        }) {
+            Text("Dice = ${game.dice}")
+            Br()
+            Text("You can't move with this number.")
+        }
+        Div({
+            style {
+                if (menu.hidden) { display(DisplayStyle.None) }
+                position(Position.Absolute)
+                top(50.percent); left(50.percent)
+                property("transform", "translate(-50%, -50%)")
+                backgroundColor(Color.darkgray)
+                border(2.px, LineStyle.Solid, Color.dimgray)
+                width(50.percent)
+                textAlign("center")
+            }
+        }){
+            Div({ style { width(98.percent); margin(1.percent); padding(1.percent) } }) { Text("Switch players presence") }
+            for (i in 0..3) {
+                Button({
+                    style {
+                        width(23.percent)
+                        margin(1.percent)
+                        property("aspect-ratio", "1")
+                        border(2.px, LineStyle.Solid, Color.dimgray)
+                        if (menu.players[i]) { backgroundColor(playerColor[i]) } else { backgroundColor(Color.gray) }
+                    }
+                    onClick {
+                        menu.players[i] = !menu.players[i]
+                    }
+                }) {
+                    Text("[${i+1}]")
+                }
+            }
+            Button({
+                style {
+                    width(75.percent)
+                    margin(1.percent)
+                    property("aspect-ratio", "5")
+                    border(2.px, LineStyle.Solid, Color.dimgray)
+                    backgroundColor(Color.lightgray)
+                }
+                onClick {
+                    if (menu.playersCount() < 2) {
+                        window.alert("At least 2 players are needed!")
+                    }
+                    else {
+                        menu.hidden = true
+                    }
+                }
+            }) {
+                Text("Confirm")
+            }
+        }
         Div({ style { padding(25.px) } }) {
             Table({
                 style {
@@ -107,8 +184,8 @@ fun main() {
                     //property("vertical-align", "center")
                     property("table-layout", "fixed")
                     property("border-spacing", "0px")
-                    property("width", "100%")
-                    property("height", "100%")
+                    width(100.percent)
+                    height(100.percent)
                     property("aspect-ratio", "1")
                     backgroundColor(Color.lightgray)
                 }
@@ -125,7 +202,7 @@ fun main() {
                                         Button({
                                             style { height(100.percent); width(100.percent); backgroundColor(playerColor[game.player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
                                             onClick {
-                                                if (game.throwingDice) {
+                                                if (game.throwingDice && menu.hidden && menu.nextButtonHidden) {
                                                     game.diceThrow()
                                                 }
                                             }//onClick
@@ -150,7 +227,7 @@ fun main() {
                                             if (game.positionsGet()[k]==fieldNum && fieldNum != 60) {
                                                 Button({
                                                     style { height(100.percent); width(100.percent); backgroundColor(playerColor[gamePiece[k].player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
-                                                    if (game.player == (k/4) && (!game.throwingDice)) {
+                                                    if (game.player == (k/4) && (!game.throwingDice) && menu.hidden && menu.nextButtonHidden) {
                                                         if (game.progressGet(k) > 0 || game.dice == 6) {
                                                             onClick {
                                                                 game.progressAdd(k)
@@ -170,8 +247,20 @@ fun main() {
                                     in listOf(36, 40, 80, 84) -> {
                                         Text("W.I.P.")
                                     }
+                                    in listOf(0, 10, 110, 120) -> {
+                                        //open menu button
+                                        Button({
+                                            style { height(100.percent); width(100.percent); backgroundColor(Color.transparent); padding(0.px); border(1.px, LineStyle.Solid, Color.dimgray) }
+                                            onClick {
+                                                menu.hidden = false
+                                            }
+                                        }) {
+                                            Text("Menu")
+                                        }
+                                    }
                                     else -> {
-                                        Text("#$fieldNum   ${fieldList[fieldNum][0]},${fieldList[fieldNum][1]}")
+                                        //Text("#$fieldNum   ${fieldList[fieldNum][0]},${fieldList[fieldNum][1]}")
+                                        Text("\u002e")
                                     }
                                 }
                             }
