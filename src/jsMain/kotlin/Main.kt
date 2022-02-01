@@ -21,13 +21,24 @@ val playerHomes = listOf(19, 20, 30, 31, 96, 97, 107, 108, 89, 90, 100, 101, 12,
 class Menu {
     var hidden by mutableStateOf(false)
     val players = mutableStateListOf(true, true, true, true)
+    val playerEnded = mutableStateListOf(false, false, false, false)
     fun playersCount(): Int { var playerCounter = 0; for (i in 0..3) { if (players[i]) { playerCounter += 1 } }; return playerCounter }
     var nextButtonHidden by mutableStateOf(true)
 }
 
 class Game {
+    var notEnded by mutableStateOf(true)
     private val progressList = (0..15).map { 0 }.toMutableStateList()
     private val positionList = (0..15).map { playerHomes[it] }.toMutableStateList()
+    private fun checkEnded() {
+        for (playerVerify in 0..3) {
+            menu.playerEnded[playerVerify] = (0..3).all { (41..44).contains(progressList[(playerVerify*4)+it]) }
+            if (menu.playerEnded[playerVerify]) {
+                menu.players[playerVerify] = false
+                console.log("Player: $playerVerify\t Won: ${menu.playerEnded[playerVerify]}")
+            }
+        }
+    }
     //private fun pieceInGame(playerNum: Int): List<Boolean> { return (0..3).map { (1..44).contains(progressList[(4*playerNum)+it]) } }
     private fun anyInGame(playerNum: Int): Boolean { return (0..3).any { (1..44).contains(progressList[(4*playerNum)+it]) } }
     fun positionsGet(): List<Int> { return positionList }
@@ -36,21 +47,38 @@ class Game {
     private var diceCount = 3
     var player by mutableStateOf(0)
         private set
-    fun nextPlayer() { do { if (player==3) { player=0 } else { player+=1 } } while ((0..3).any { menu.players[it] } && !menu.players[player]); throwingDice = true; diceCount = if (anyInGame(player)) { 1 } else { 3 } }
+    fun nextPlayer() {
+        do { if (player==3) { player=0 } else { player+=1 } } while ((0..3).any { menu.players[it] } && !menu.players[player])
+        throwingDice = true
+        diceCount = if (anyInGame(player)) { 1 } else { 3 } }
     var dice by mutableStateOf(0)
         private set
-    fun canMoveThis(piece: Int): Boolean { return (progressList[piece]+dice) <= 45 }
-    fun canMove(): Boolean { return (0..3).any { (progressList[(player*4)+it]+dice) <= 45 } }
+    fun canMoveThis(piece: Int): Boolean {
+        return if (progressList[piece]+dice < 41) {
+            true
+        } else {
+            progressList[piece] + dice < 45 && !(0..3).any { progressList[(player * 4) + it] == progressList[piece] + dice }
+        }
+    }
+    private fun canMove(currentPlayer: Int): Boolean {
+        val pieces = (0..3).map { (currentPlayer*4)+it }
+        if (pieces.any { progressList[it]+dice < 41 }) { return true }
+        var piecesCanMove = false
+        for (p in pieces) {
+            if ((41..44).contains(progressList[p]+dice)) {
+                piecesCanMove = piecesCanMove || !(0..3).any { progressList[(currentPlayer * 4) + it] == progressList[p] + dice }
+            }
+        }
+        return piecesCanMove
+    }
     fun diceThrow() {
         dice = Random.nextInt(1, 7)
         if (dice == 6) { diceCount = 1 } else { diceCount -= 1 }
         throwingDice = !(anyInGame(player) || dice == 6)
         console.log("p$player : Dice = $dice \t left: $diceCount")
-        if (diceCount <= 0 && (!anyInGame(player))) { menu.nextButtonHidden = false }
+        if (!canMove(player)) { menu.nextButtonHidden = false } else if (diceCount <= 0 && (!anyInGame(player))) { menu.nextButtonHidden = false }
     }
-    fun homeBlockedFor(piece: Int): Boolean {
-        return ((0..3).any { progressList[(piece/4)+it] == progressList[it] } && (41..44).contains(progressList[piece]+dice))
-    }
+    //fun homeBlockedFor(piece: Int): Boolean { return ((0..3).any { progressList[(piece/4)+it] == progressList[it] } && (41..44).contains(progressList[piece]+dice)) }//todo remove
     fun kick(currentPiece: Int) {
         val fieldNumber = playerPath[currentPiece/4][progressList[currentPiece]]
         val indexList = (0..15).map { it }.toMutableList()
@@ -69,6 +97,7 @@ class Game {
             throwingDice = true
             if (dice != 6 && diceCount <= 0) { nextPlayer() }
         }
+        checkEnded()
     }
     //nested class
     class Piece(private val index:Int) {
@@ -101,14 +130,15 @@ fun main() {
     listOf(114, 89, 90, 100, 101, 71, 82, 93, 104).map { fieldColor[it/11][it%11] = playerColor[2]; borderColor[it/11][it%11] = Color.dimgray }
     listOf(44, 12, 13, 23, 24, 56, 57, 58, 59).map { fieldColor[it/11][it%11] = playerColor[3]; borderColor[it/11][it%11] = Color.dimgray }
 
-    //coloring "W.I.P." fields
-    listOf(36, 40, 80, 84).map { fieldColor[it/11][it%11] = Color.pink; borderColor[it/11][it%11] = Color.deeppink }
+    //coloring status fields
+    listOf(36, 40, 80, 84).map { /*fieldColor[it/11][it%11] = Color.pink;*/ borderColor[it/11][it%11] = Color.dimgray }
 
 
     //"ManDontGetAngry_root" div style applying
     document.getElementById("ManDontGetAngry_root")?.setAttribute("style", "padding: 0px; border: none; aspect-ratio: 1; position: relative; margin: 0px auto;")
 
     renderComposable(rootElementId = "ManDontGetAngry_root") {
+        //Div - next player
         Button({
             style {
                 if (menu.nextButtonHidden) { display(DisplayStyle.None) }
@@ -127,6 +157,7 @@ fun main() {
             Br()
             Text("You can't move with this number.")
         }
+        //Div - menu
         Div({
             style {
                 if (menu.hidden) { display(DisplayStyle.None) }
@@ -150,7 +181,7 @@ fun main() {
                         if (menu.players[i]) { backgroundColor(playerColor[i]) } else { backgroundColor(Color.gray) }
                     }
                     onClick {
-                        menu.players[i] = !menu.players[i]
+                        menu.players[i] = !(menu.players[i] || menu.playerEnded[i])
                     }
                 }) {
                     Text("[${i+1}]")
@@ -176,6 +207,26 @@ fun main() {
                 Text("Confirm")
             }
         }
+        //Div - game over
+        Div({
+            id("the_end-div")
+            style {
+                if (game.notEnded) { display(DisplayStyle.None) }
+                position(Position.Absolute)
+                top(50.percent); left(50.percent)
+                property("transform", "translate(-50%, -50%)")
+                backgroundColor(Color.lightgray)
+                border(3.px, LineStyle.Solid, Color.dimgray)
+                //width(50.percent)
+                property("aspect-ratio", "1")
+                textAlign("center")
+                padding(1.percent)
+            }
+        })
+        document.getElementById("the_end-div")?.innerHTML = "<svg width=\"180\" height=\"180\" style=\"width\">\n" +
+                "<path d=\"M5 10 L55 10 L55 20 L35 20 L35 80 L25 80 L25 20 L5 20 Z M65 10 L75 10 L75 40 L105 40 L105 10 L115 10 L115 80 L105 80 L105 50 L75 50 L75 80 L65 80 Z\" stroke=\"black\" stroke-width=\"3\" fill=\"white\" />\n" +
+                "</svg>"
+        //Div - board
         Div({ style { padding(25.px) } }) {
             Table({
                 style {
@@ -215,7 +266,8 @@ fun main() {
                                         Button({
                                             style { height(100.percent); width(100.percent); backgroundColor(rgb(255, 127, 0)); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
                                             onClick {
-                                                game.nextPlayer()
+                                                //game.nextPlayer()
+                                                game.notEnded = !game.notEnded
                                             }
                                         }) {
                                             Text("< ${game.player} temp >")
@@ -227,7 +279,7 @@ fun main() {
                                             if (game.positionsGet()[k]==fieldNum && fieldNum != 60) {
                                                 Button({
                                                     style { height(100.percent); width(100.percent); backgroundColor(playerColor[gamePiece[k].player]); padding(0.px); border(1.px, LineStyle.Solid, Color.black) }
-                                                    if (game.player == (k/4) && (!game.throwingDice) && menu.hidden && menu.nextButtonHidden) {
+                                                    if (game.player == (k/4) && (!game.throwingDice) && menu.hidden && menu.nextButtonHidden && game.canMoveThis(k)) {
                                                         if (game.progressGet(k) > 0 || game.dice == 6) {
                                                             onClick {
                                                                 game.progressAdd(k)
@@ -244,9 +296,11 @@ fun main() {
                                             }
                                         }
                                     }
-                                    in listOf(36, 40, 80, 84) -> {
-                                        Text("W.I.P.")
-                                    }
+                                    36 -> { Text( if (menu.playerEnded[3]) { "END" } else if (!menu.players[3]) { "#" } else { "GO!" } ) }
+                                    40 -> { Text( if (menu.playerEnded[0]) { "END" } else if (!menu.players[0]) { "#" } else { "GO!" } ) }
+                                    80 -> { Text( if (menu.playerEnded[2]) { "END" } else if (!menu.players[2]) { "#" } else { "GO!" } ) }
+                                    84 -> { Text( if (menu.playerEnded[1]) { "END" } else if (!menu.players[1]) { "#" } else { "GO!" } ) }
+                                    //in listOf(36, 40, 80, 84) -> { Text("W.I.P.") }
                                     in listOf(0, 10, 110, 120) -> {
                                         //open menu button
                                         Button({
