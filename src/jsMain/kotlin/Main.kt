@@ -224,7 +224,7 @@ fun main() {
                     margin(1.percent)
                     property("aspect-ratio", "10")
                     border(2.px, LineStyle.Solid, Color.dimgray)
-                    backgroundColor(Color.lightgray)
+                    backgroundColor(playerColor[game.player])
                 }
                 onClick {
                     game.nextPlayer()
